@@ -101,6 +101,40 @@ def main(config, args):
     )
 
 
+# ByteDance LatentSync-1.5 / 1.6 publish nearly same-sized unets; mixing them with
+# the wrong yaml produces a hard mouth-mask / ghost seam. Sizes from HF metadata.
+_HF_UNET_SIZES = {
+    5072348184: ("1.5", 256),
+    5072222488: ("1.6", 512),
+}
+
+
+def _config_hint(expected_res: int) -> str:
+    if expected_res == 512:
+        return "use configs/unet/stage2_512.yaml with ByteDance/LatentSync-1.6"
+    return "use configs/unet/stage2.yaml with ByteDance/LatentSync-1.5"
+
+
+def _warn_if_ckpt_config_mismatch(ckpt_path: str, config) -> None:
+    try:
+        size = os.path.getsize(ckpt_path)
+    except OSError:
+        return
+    meta = _HF_UNET_SIZES.get(size)
+    if meta is None:
+        return
+    version, expected_res = meta
+    cfg_res = int(config.data.resolution)
+    if cfg_res == expected_res:
+        print(f"Checkpoint matches LatentSync {version} @ {expected_res}px")
+        return
+    raise RuntimeError(
+        f"LatentSync checkpoint/config mismatch: file looks like {version} "
+        f"(expected {expected_res}px) but config resolution is {cfg_res}px "
+        f"({_config_hint(expected_res)}). Mixing 1.5↔1.6 causes mouth-mask ghosting."
+    )
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--unet_config_path", type=str, default="configs/unet.yaml")
@@ -116,5 +150,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     config = OmegaConf.load(args.unet_config_path)
+    _warn_if_ckpt_config_mismatch(args.inference_ckpt_path, config)
 
     main(config, args)

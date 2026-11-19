@@ -110,6 +110,11 @@ Minimum VRAM for inference:
 - **8 GB** with LatentSync 1.5
 - **18 GB** with LatentSync 1.6
 
+> **Checkpoint ↔ config must match.**  
+> LatentSync **1.5** → `configs/unet/stage2.yaml` (256) + weights from `ByteDance/LatentSync-1.5`  
+> LatentSync **1.6** → `configs/unet/stage2_512.yaml` (512) + weights from `ByteDance/LatentSync-1.6` (this is what `inference.sh` uses)  
+> Mixing them (e.g. 1.5 weights with `stage2_512.yaml`) causes a hard mouth-mask / ghost seam around the lips. `scripts/inference.py` now refuses that mismatch when the checkpoint file size matches a known HF release.
+
 There are two ways to perform inference:
 
 ### 1. Gradio App
